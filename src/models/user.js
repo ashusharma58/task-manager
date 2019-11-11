@@ -10,11 +10,12 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
+        unique: true,
         required: true,
         trim: true,
         lowercase: true,
-        validate(value){
-            if(!validator.isEmail(value)){
+        validate(value) {
+            if (!validator.isEmail(value)) {
                 throw new Error('Email is invailed')
             }
         }
@@ -25,7 +26,7 @@ const userSchema = new mongoose.Schema({
         trim: true,
         minlength: 7,
         validate(value) {
-            if(value.toLowerCase().includes('password')){
+            if (value.toLowerCase().includes('password')) {
                 throw new Error('Password should not contain "password"')
             }
         }
@@ -34,26 +35,40 @@ const userSchema = new mongoose.Schema({
     age: {
         type: Number,
         default: 0,
-        validate(value){
-            if(value < 0 ) {
+        validate(value) {
+            if (value < 0) {
                 throw new Error('Age must be a positive number')
             }
         }
     }
 })
 
-userSchema.pre('save', async function(next) {
-const user = this;
-if(user.isModified('password')) {
-    user.password = await bcrypt.hash(user.password, 8)
+userSchema.statics.findByCredentials = async (email, password) => {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new Error('Unable to login')
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        throw new Error('Unable to login');
+    }
+
+    return user
 }
-// console.log('just before saving');
-next();
+
+userSchema.pre('save', async function (next) {
+    const user = this;
+    if (user.isModified('password')) {
+        user.password = await bcrypt.hash(user.password, 8)
+    }
+    // console.log('just before saving');
+    next();
 
 })
 
 
-const User = mongoose.model('User', userSchema )
+const User = mongoose.model('User', userSchema)
 
 
 module.exports = User
